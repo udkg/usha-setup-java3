@@ -87,6 +87,8 @@ function cp(source, dest, options = {}) {
             throw new Error(`no such file or directory: ${source}`);
         }
         const sourceStat = yield ioUtil.stat(source);
+        console.log("newDest="+newDest);
+        console.log("sourceStat="+sourceStat);
         if (sourceStat.isDirectory()) {
             if (!recursive) {
                 throw new Error(`Failed to copy. ${source} is a directory, but tried to copy without recursive flag.`);
@@ -329,6 +331,7 @@ function copyFile(srcFile, destFile, force) {
             }
             // Copy over symlink
             const symlinkFull = yield ioUtil.readlink(srcFile);
+            console.log("symlinkFull" +symlinkFull);
             yield ioUtil.symlink(symlinkFull, destFile, ioUtil.IS_WINDOWS ? 'junction' : null);
         }
         else if (!(yield ioUtil.exists(destFile)) || force) {
@@ -3469,6 +3472,8 @@ function extractTar(file, dest, flags = 'xz') {
         dest = yield _createExtractFolder(dest);
         // Determine whether GNU tar
         let versionOutput = '';
+        console.log("file="+file);
+        console.log("dest="+ dest);
         yield exec_1.exec('tar --version', [], {
             ignoreReturnCode: true,
             listeners: {
@@ -3492,6 +3497,9 @@ function extractTar(file, dest, flags = 'xz') {
             // Suppress warnings when using GNU tar to extract archives created by BSD tar
             args.push('--warning=no-unknown-keyword');
         }
+        console.log("ARgs="+ fileArg);
+        console.log("File="+file);
+        //console.log(destArg="+ destArg);
         args.push('-C', destArg, '-f', fileArg);
         yield exec_1.exec(`tar`, args);
         return dest;
@@ -3595,6 +3603,8 @@ function cacheFile(sourceFile, targetFile, tool, version, arch) {
         arch = arch || os.arch();
         core.debug(`Caching tool ${tool} ${version} ${arch}`);
         core.debug(`source file: ${sourceFile}`);
+        console.log("sourceDir"+ sourceDir);
+        
         if (!fs.statSync(sourceFile).isFile()) {
             throw new Error('sourceFile is not a file');
         }
@@ -3603,6 +3613,8 @@ function cacheFile(sourceFile, targetFile, tool, version, arch) {
         // copy instead of move. move can fail on Windows due to
         // anti-virus software having an open handle on a file.
         const destPath = path.join(destFolder, targetFile);
+        console.log("destPATh"+destPath);
+        
         core.debug(`destination file ${destPath}`);
         yield io.cp(sourceFile, destPath);
         // write .complete
@@ -4556,7 +4568,9 @@ function run() {
             }
             const arch = core.getInput('architecture', { required: true });
             const javaPackage = core.getInput('java-package', { required: true });
+            console.log("javaPackage-run="+javaPackage);
             const jdkFile = core.getInput('jdkFile', { required: false }) || '';
+             console.log("jdkFile-run="+jdkFile);
             yield installer.getJava(version, arch, jdkFile, javaPackage);
             const matchersPath = path.join(__dirname, '..', '.github');
             console.log(`##[add-matcher]${path.join(matchersPath, 'java.json')}`);
@@ -4669,6 +4683,7 @@ if (!tempDirectory) {
 function getJava(version, arch, jdkFile, javaPackage) {
     return __awaiter(this, void 0, void 0, function* () {
         let toolPath = tc.find(javaPackage, version);
+        console.log("toolPath="+toolPath);
         if (toolPath) {
             core.debug(`Tool found in cache ${toolPath}`);
         }
@@ -4696,9 +4711,18 @@ function getJava(version, arch, jdkFile, javaPackage) {
                 }
                 const contents = yield response.readBody();
                 const refs = contents.match(/<a href.*\">/gi) || [];
+                console.log("refs="+refs);
+                console.log("version="+version);
+                console.log("javaPackage="+javaPackage);
+                console.log("url="+url);
                 const downloadInfo = getDownloadInfo(refs, version, javaPackage);
+                console.log("downloadInfourl="+downloadInfo.url);
+                console.log("downloadInfo="+downloadInfo.refs);
+                console.log("downloadInfo="+downloadInfo.javaPackage);
                 jdkFile = yield tc.downloadTool(downloadInfo.url);
+                console.log("jdkFile1="+ jdkFile);
                 version = downloadInfo.version;
+                console.log("version1="+ version);
                 compressedFileExtension = IS_WINDOWS ? '.zip' : '.tar.gz';
             }
             else {
@@ -4708,7 +4732,10 @@ function getJava(version, arch, jdkFile, javaPackage) {
             let tempDir = path.join(tempDirectory, 'temp_' + Math.floor(Math.random() * 2000000000));
             const jdkDir = yield unzipJavaDownload(jdkFile, compressedFileExtension, tempDir);
             core.debug(`jdk extracted to ${jdkDir}`);
+            console.log("jdk extracted to"+ jdkDir);
             toolPath = yield tc.cacheDir(jdkDir, javaPackage, getCacheVersionString(version), arch);
+            console.log("toolpath"+ toolPath);
+            console.log("javaPackage="+javaPackage);
         }
         let extendedJavaHome = 'JAVA_HOME_' + version + '_' + arch;
         core.exportVariable('JAVA_HOME', toolPath);
@@ -4795,7 +4822,11 @@ function unzipJavaDownload(repoRoot, fileEnding, destinationFolder, extension) {
         const stats = fs.statSync(jdkFile);
         if (stats.isFile()) {
             yield extractFiles(jdkFile, fileEnding, destinationFolder);
+            console.log("destinationFolder="+destinationFolder);
+            console.log("readsync="+fs.readdirSync(destinationFolder)[0]);
             const jdkDirectory = path.join(destinationFolder, fs.readdirSync(destinationFolder)[0]);
+            console.log("jdkDirectory1="+jdkDirectory);
+            console.log("jdkFile11="+jdkFile);
             yield unpackJars(jdkDirectory, path.join(jdkDirectory, 'bin'));
             return jdkDirectory;
         }
@@ -4821,10 +4852,12 @@ function getDownloadInfo(refs, version, javaPackage) {
     let pkgRegexp = new RegExp('');
     let pkgTypeLength = 0;
     if (javaPackage === 'jdk') {
+        console.log("javaPackage3="+javaPackage);
         pkgRegexp = /jdk.*-/gi;
         pkgTypeLength = 'jdk'.length;
     }
     else if (javaPackage == 'jre') {
+         console.log("javaPackage2="+javaPackage);
         pkgRegexp = /jre.*-/gi;
         pkgTypeLength = 'jre'.length;
     }
